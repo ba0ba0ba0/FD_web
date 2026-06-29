@@ -1,4 +1,5 @@
 # 📚 故障诊断论文集 | Fault Diagnosis Papers
+##网址：https://ba0ba0ba0.github.io/FD_web/ 
 
 收录近两年故障诊断领域权威期刊论文的自动聚合网站，涵盖五大研究方向：
 
