@@ -1,0 +1,56 @@
+name: Update Papers Data
+
+on:
+  schedule:
+    # Runs at 08:00 UTC on the 1st and 15th of every month
+    - cron: '0 8 1,15 * *'
+  workflow_dispatch:       # Manual trigger from GitHub Actions UI
+
+permissions:
+  contents: write          # Required to commit and push updated papers.json
+
+jobs:
+  update-papers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: 'scripts/requirements.txt'
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Fetch papers
+        env:
+          S2_API_KEY: ${{ secrets.S2_API_KEY }}
+        run: python scripts/fetch_papers.py --output data/papers.json
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if git diff --quiet data/papers.json; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No new papers found. Skipping commit."
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            PAPER_COUNT=$(python -c "import json; d=json.load(open('data/papers.json')); print(d['meta']['totalPapers'])")
+            echo "paper_count=$PAPER_COUNT" >> $GITHUB_OUTPUT
+            echo "Found $PAPER_COUNT papers in total."
+          fi
+
+      - name: Commit and push updated papers
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/papers.json
+          git commit -m "Auto-update: ${{ steps.check_changes.outputs.paper_count }} papers as of $(date -u +'%Y-%m-%d')"
+          git push

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="故障诊断领域权威期刊论文收集与展示 — 涵盖深度学习、迁移学习、联邦学习、可解释性、应用部署五大研究方向">
+    <meta name="theme-color" content="#2563eb">
+    <title>故障诊断论文集 | Fault Diagnosis Papers</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- ========== Header ========== -->
+    <header class="site-header">
+        <div class="container header-inner">
+            <div class="header-text">
+                <h1 class="site-title">
+                    <span class="site-title__icon">📚</span>
+                    故障诊断论文
+                    <span class="site-title__sub">Fault Diagnosis Papers</span>
+                </h1>
+                <p class="site-description">
+                    收录近两年故障诊断领域权威期刊论文，涵盖深度学习、迁移学习、联邦学习、可解释性、应用部署等五大研究方向。数据每半月自动更新。
+                </p>
+            </div>
+            <div class="header-meta" id="header-meta">
+                <span class="meta-badge" id="update-time" title="最后更新时间">
+                    <span class="meta-badge__icon">🕐</span>
+                    <span>加载中...</span>
+                </span>
+                <span class="meta-badge" id="total-count" title="论文总数">
+                    <span class="meta-badge__icon">📄</span>
+                    <span>--</span>
+                </span>
+                <span class="meta-badge meta-badge--source">
+                    <span class="meta-badge__icon">📡</span>
+                    <span>Semantic Scholar + arXiv</span>
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <!-- ========== Stale Data Warning ========== -->
+    <div class="stale-warning" id="stale-warning" hidden>
+        <div class="container">
+            ⚠️ 论文数据已 <strong id="stale-days">N</strong> 天未更新，下次自动更新即将进行。
+            <button class="stale-warning__dismiss" id="stale-dismiss" aria-label="关闭提醒">✕</button>
+        </div>
+    </div>
+
+    <!-- ========== Search & Filter Bar ========== -->
+    <nav class="filter-section" aria-label="论文筛选">
+        <div class="container">
+            <!-- Search -->
+            <div class="search-wrapper">
+                <span class="search-icon" aria-hidden="true">🔍</span>
+                <input
+                    type="search"
+                    id="search-input"
+                    class="search-input"
+                    placeholder="搜索论文标题、作者、摘要..."
+                    aria-label="搜索论文"
+                    autocomplete="off"
+                >
+                <button class="search-clear" id="search-clear" aria-label="清除搜索" hidden>✕</button>
+            </div>
+
+            <!-- Category Pills -->
+            <div class="category-pills" id="category-pills" role="tablist" aria-label="研究方向分类">
+                <button class="category-pill active" data-category="all" role="tab" aria-selected="true">
+                    📋 全部 <span class="pill-count" id="pill-count-all">(--)</span>
+                </button>
+                <button class="category-pill" data-category="deep_learning" role="tab" aria-selected="false">
+                    🤖 深度学习 <span class="pill-count" id="pill-count-deep_learning">(--)</span>
+                </button>
+                <button class="category-pill" data-category="transfer_learning" role="tab" aria-selected="false">
+                    🔄 迁移学习 <span class="pill-count" id="pill-count-transfer_learning">(--)</span>
+                </button>
+                <button class="category-pill" data-category="federated_learning" role="tab" aria-selected="false">
+                    🔗 联邦学习 <span class="pill-count" id="pill-count-federated_learning">(--)</span>
+                </button>
+                <button class="category-pill" data-category="explainable_ai" role="tab" aria-selected="false">
+                    🧠 可解释性 <span class="pill-count" id="pill-count-explainable_ai">(--)</span>
+                </button>
+                <button class="category-pill" data-category="application_deployment" role="tab" aria-selected="false">
+                    🏭 应用部署 <span class="pill-count" id="pill-count-application_deployment">(--)</span>
+                </button>
+            </div>
+
+            <!-- Sort & Stats Row -->
+            <div class="filter-controls">
+                <div class="sort-group">
+                    <label for="sort-select" class="sort-label">排序：</label>
+                    <select id="sort-select" class="sort-select">
+                        <option value="citations">引用数 ↓</option>
+                        <option value="year-desc">年份 ↓ (最新)</option>
+                        <option value="year-asc">年份 ↑ (最早)</option>
+                        <option value="title">标题 A-Z</option>
+                    </select>
+                </div>
+                <span class="result-count" id="result-count">显示 0 / 0 篇论文</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- ========== Main Content ========== -->
+    <main class="main-content" id="main-content">
+        <div class="container">
+            <!-- Loading State -->
+            <div class="loading-spinner" id="loading-state">
+                <div class="spinner" aria-hidden="true"></div>
+                <p>正在加载论文数据...</p>
+            </div>
+
+            <!-- Error State -->
+            <div class="error-banner" id="error-state" hidden>
+                <div class="error-banner__icon">❌</div>
+                <h2 class="error-banner__title">数据加载失败</h2>
+                <p class="error-banner__msg" id="error-msg">无法加载论文数据，请刷新页面重试。</p>
+                <button class="btn btn--primary" id="retry-btn">🔄 重新加载</button>
+            </div>
+
+            <!-- Empty State -->
+            <div class="empty-state" id="empty-state" hidden>
+                <div class="empty-state__icon">🔍</div>
+                <h2 class="empty-state__title">没有找到匹配的论文</h2>
+                <p class="empty-state__msg">请尝试调整筛选条件或搜索关键词。</p>
+                <button class="btn btn--secondary" id="clear-filters-btn">✕ 清除所有筛选</button>
+            </div>
+
+            <!-- Paper Grid -->
+            <div class="paper-grid" id="paper-grid"></div>
+
+            <!-- Load More -->
+            <div class="load-more-wrapper" id="load-more-wrapper" hidden>
+                <button class="btn btn--primary btn--load-more" id="load-more-btn">
+                    📥 加载更多 (<span id="load-more-remaining">0</span> 篇剩余)
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- ========== Footer ========== -->
+    <footer class="site-footer">
+        <div class="container footer-inner">
+            <p class="footer-text">
+                数据来源：
+                <a href="https://www.semanticscholar.org/" target="_blank" rel="noopener">Semantic Scholar</a>
+                &amp;
+                <a href="https://arxiv.org/" target="_blank" rel="noopener">arXiv</a>
+                &nbsp;|&nbsp;
+                每半月自动更新
+                &nbsp;|&nbsp;
+                仅收录近两年论文
+            </p>
+            <p class="footer-text footer-text--small">
+                Built with ❤️ for the fault diagnosis research community
+                &nbsp;|&nbsp;
+                <a href="https://github.com" target="_blank" rel="noopener">GitHub</a>
+            </p>
+        </div>
+    </footer>
+
+    <!-- ========== Scripts ========== -->
+    <script src="js/app.js"></script>
+</body>
+</html>
