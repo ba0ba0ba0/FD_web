@@ -558,14 +558,17 @@
         dom.categoryPills.addEventListener("click", (e) => {
             const pill = e.target.closest(".category-pill");
             if (!pill) return;
-            state.activeCategory = pill.dataset.category;
+            const cat = pill.dataset.category;
+            state.activeCategory = cat;
             state.visibleCount = BATCH_SIZE;
             applyFilters();
             render();
             saveStateToHash();
 
             // Scroll the active pill into view (on mobile)
-            pill.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+            try {
+                pill.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+            } catch (_) { /* ignore scroll errors on older browsers */ }
         });
 
         // Sort select
