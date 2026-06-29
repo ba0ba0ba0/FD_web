@@ -140,30 +140,43 @@
         state.hasError = false;
         render();
 
-        try {
-            const resp = await fetch("data/papers.json");
-            if (!resp.ok) {
-                throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+        // Safety fallback: force hide loading after 10 seconds
+        var loadTimeout = setTimeout(function () {
+            if (state.isLoading) {
+                console.warn("Loading timeout triggered — forcing error state");
+                state.isLoading = false;
+                state.hasError = true;
+                state.errorMessage = "数据加载超时，请检查网络连接后刷新页面。";
+                render();
             }
-            const data = await resp.json();
+        }, 10000);
+
+        try {
+            var resp = await fetch("data/papers.json");
+            if (!resp.ok) {
+                throw new Error("HTTP " + resp.status + ": " + resp.statusText);
+            }
+            var data = await resp.json();
 
             state.papers = data.papers || [];
             state.categories = data.categories || [];
             state.meta = data.meta || null;
             state.isLoading = false;
+            clearTimeout(loadTimeout);
 
-            // Restore state from URL hash before applying filters
-            restoreStateFromHash();
-            applyFilters();
-            render();
-            saveStateToHash();
-            checkStaleness();
+            // Each step wrapped individually so one failure doesn't block others
+            try { restoreStateFromHash(); } catch (e) { console.error(e); }
+            try { applyFilters(); } catch (e) { console.error(e); }
+            try { render(); } catch (e) { console.error(e); }
+            try { saveStateToHash(); } catch (e) { console.error(e); }
+            try { checkStaleness(); } catch (e) { console.error(e); }
         } catch (err) {
             console.error("Failed to load papers:", err);
+            clearTimeout(loadTimeout);
             state.isLoading = false;
             state.hasError = true;
             state.errorMessage = err.message || "网络请求失败，请检查网络连接后重试。";
-            render();
+            try { render(); } catch (e) { console.error(e); }
         }
     }
 
@@ -531,90 +544,113 @@
     // -----------------------------------------------------------------------
 
     function setupEvents() {
+        // Each listener guarded independently — one broken element won't kill others
+
         // Search input (debounced)
-        dom.searchInput.addEventListener(
-            "input",
-            debounce(function () {
-                state.searchQuery = this.value.trim();
-                state.visibleCount = BATCH_SIZE;
-                applyFilters();
-                render();
-                saveStateToHash();
-            }, DEBOUNCE_MS)
-        );
+        if (dom.searchInput) {
+            dom.searchInput.addEventListener(
+                "input",
+                debounce(function () {
+                    state.searchQuery = this.value.trim();
+                    state.visibleCount = BATCH_SIZE;
+                    try { applyFilters(); } catch (e) { console.error(e); }
+                    try { render(); } catch (e) { console.error(e); }
+                    try { saveStateToHash(); } catch (e) { console.error(e); }
+                }, DEBOUNCE_MS)
+            );
+        }
 
         // Search clear
-        dom.searchClear.addEventListener("click", () => {
-            dom.searchInput.value = "";
-            state.searchQuery = "";
-            state.visibleCount = BATCH_SIZE;
-            applyFilters();
-            render();
-            saveStateToHash();
-            dom.searchInput.focus();
-        });
+        if (dom.searchClear) {
+            dom.searchClear.addEventListener("click", function () {
+                dom.searchInput.value = "";
+                state.searchQuery = "";
+                state.visibleCount = BATCH_SIZE;
+                try { applyFilters(); } catch (e) { console.error(e); }
+                try { render(); } catch (e) { console.error(e); }
+                try { saveStateToHash(); } catch (e) { console.error(e); }
+                if (dom.searchInput) dom.searchInput.focus();
+            });
+        }
 
         // Category pills (event delegation)
-        dom.categoryPills.addEventListener("click", (e) => {
-            const pill = e.target.closest(".category-pill");
-            if (!pill) return;
-            const cat = pill.dataset.category;
-            state.activeCategory = cat;
-            state.visibleCount = BATCH_SIZE;
-            applyFilters();
-            render();
-            saveStateToHash();
+        if (dom.categoryPills) {
+            dom.categoryPills.addEventListener("click", function (e) {
+                // closest() polyfill for older browsers
+                var el = e.target;
+                while (el && el !== dom.categoryPills) {
+                    if (el.classList && el.classList.contains("category-pill")) break;
+                    el = el.parentElement;
+                }
+                if (!el || el === dom.categoryPills) return;
 
-            // Scroll the active pill into view (on mobile)
-            try {
-                pill.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
-            } catch (_) { /* ignore scroll errors on older browsers */ }
-        });
+                var cat = el.dataset.category;
+                state.activeCategory = cat;
+                state.visibleCount = BATCH_SIZE;
+                try { applyFilters(); } catch (err) { console.error(err); }
+                try { render(); } catch (err) { console.error(err); }
+                try { saveStateToHash(); } catch (err) { console.error(err); }
+
+                try {
+                    el.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+                } catch (_) { /* ignore scroll errors */ }
+            });
+        }
 
         // Sort select
-        dom.sortSelect.addEventListener("change", function () {
-            state.sortBy = this.value;
-            state.visibleCount = BATCH_SIZE;
-            applySortAndLimit();
-            render();
-            saveStateToHash();
-        });
+        if (dom.sortSelect) {
+            dom.sortSelect.addEventListener("change", function () {
+                state.sortBy = this.value;
+                state.visibleCount = BATCH_SIZE;
+                try { applySortAndLimit(); } catch (err) { console.error(err); }
+                try { render(); } catch (err) { console.error(err); }
+                try { saveStateToHash(); } catch (err) { console.error(err); }
+            });
+        }
 
         // Load more
-        dom.loadMoreBtn.addEventListener("click", () => {
-            state.visibleCount += BATCH_SIZE;
-            applySortAndLimit();
-            render();
-        });
+        if (dom.loadMoreBtn) {
+            dom.loadMoreBtn.addEventListener("click", function () {
+                state.visibleCount += BATCH_SIZE;
+                try { applySortAndLimit(); } catch (err) { console.error(err); }
+                try { render(); } catch (err) { console.error(err); }
+            });
+        }
 
         // Retry button
-        dom.retryBtn.addEventListener("click", () => {
-            loadPapers();
-        });
+        if (dom.retryBtn) {
+            dom.retryBtn.addEventListener("click", function () {
+                loadPapers();
+            });
+        }
 
         // Clear filters button
-        dom.clearFiltersBtn.addEventListener("click", () => {
-            state.searchQuery = "";
-            state.activeCategory = "all";
-            state.sortBy = "citations";
-            state.visibleCount = BATCH_SIZE;
-            dom.searchInput.value = "";
-            applyFilters();
-            render();
-            saveStateToHash();
-        });
+        if (dom.clearFiltersBtn) {
+            dom.clearFiltersBtn.addEventListener("click", function () {
+                state.searchQuery = "";
+                state.activeCategory = "all";
+                state.sortBy = "citations";
+                state.visibleCount = BATCH_SIZE;
+                if (dom.searchInput) dom.searchInput.value = "";
+                try { applyFilters(); } catch (err) { console.error(err); }
+                try { render(); } catch (err) { console.error(err); }
+                try { saveStateToHash(); } catch (err) { console.error(err); }
+            });
+        }
 
         // Stale warning dismiss
-        dom.staleDismiss.addEventListener("click", () => {
-            dom.staleWarning.hidden = true;
-        });
+        if (dom.staleDismiss) {
+            dom.staleDismiss.addEventListener("click", function () {
+                dom.staleWarning.hidden = true;
+            });
+        }
 
         // Browser back/forward
-        window.addEventListener("hashchange", () => {
-            restoreStateFromHash();
-            dom.searchInput.value = state.searchQuery;
-            applyFilters();
-            render();
+        window.addEventListener("hashchange", function () {
+            try { restoreStateFromHash(); } catch (err) { console.error(err); }
+            if (dom.searchInput) dom.searchInput.value = state.searchQuery;
+            try { applyFilters(); } catch (err) { console.error(err); }
+            try { render(); } catch (err) { console.error(err); }
         });
     }
 
